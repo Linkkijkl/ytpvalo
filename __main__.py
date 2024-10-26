@@ -19,10 +19,17 @@ MAIN_GENERATOR = generators.metallic_noise
 
 available_generators = {"metallic_noise": generators.metallic_noise,
                         "ytp": generators.ytp,
-                        "color_noise": generators.color_noise}
+                        "color_noise": generators.color_noise,
+                        "white": generators.white,
+                        "blue": generators.blue,
+                        "red": generators.red,
+                        "green": generators.green,
+                        "black": generators.black,
+                        "rainbow": generators.rainbow}
 
 
 def main():
+    # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--serial-device", dest="serial_device", default=DEFAULT_SERIAL_DEVICE)
     parser.add_argument("-n", "--total-lights", dest="total_lights", default=DEFAULT_TOTAL_LIGHTS, type=int)
@@ -33,6 +40,7 @@ def main():
 
     current_generator = MAIN_GENERATOR
 
+    # Initialize DMX
     dmx = None
     if not args.dry_run:
         try:
@@ -40,6 +48,7 @@ def main():
         except:
             exit(0)
 
+    # Initialize GUI and register commands for it
     gui = ui.Gui()
     gui.register_command("exit", lambda *_: exit(0))
 
@@ -55,6 +64,7 @@ def main():
     while True:
         elapsed = time.perf_counter() - start_time
 
+        # Render colors to DMX buffer and GUI
         for n in range(args.total_lights):
             color = current_generator(elapsed, n, args.total_lights)
             if not color: continue
@@ -65,6 +75,7 @@ def main():
             if not args.quiet:
                 gui.colors.append(scaled_color)
 
+        # Draw DMX buffer
         if not args.dry_run:
             try:
                 dmx.render()
@@ -74,13 +85,16 @@ def main():
                 else:
                     sys.stderr.write("Serial write error")
 
+        # Calculate frame time to show on GUI
         frame_start_time = elapsed + start_time
         frame_time = time.perf_counter() - frame_start_time
         gui.set_frame_time(frame_time)
 
+        # Render GUI
         if not args.quiet:
             gui.render()
 
+        # Wait to fulfill minimum frame time
         if frame_time < MIN_FRAME_TIME:
             sleep_for = MIN_FRAME_TIME - frame_time
             if not args.quiet:

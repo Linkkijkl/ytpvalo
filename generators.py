@@ -3,7 +3,7 @@ from collections.abc import Callable
 import typing
 
 type Color = typing.List[float] # R, G, B   0.0 - 1.0
-type Generator = Callable[[float, int, int], Color] # light N, time in seconds, total lights
+type Generator = Callable[[float, int, int], Color] # time in seconds, light N, total lights
 
 
 # Positive sin(x), values ranging from 0.0 to 1.0
@@ -16,7 +16,7 @@ def lerp(a, b, x: float):
     return a * (1-x) +  b * x
 
 
-# TODO: Replace shit implementation
+# TODO: Replace bad implementation
 def noise(x):
     return (sinp(2 * x) + sinp(math.pi * x)) * 0.5
 
@@ -41,12 +41,14 @@ def rainbow_gradient(x) -> Color:
 #     return helper
 
 
+# Constructs a generator emitting given color
 def solid_color(color: Color) -> Generator:
     def helper(*_):
         return color
     return helper
 
 
+# Define colors as generators
 red: Generator = solid_color([1.0, 0.0, 0.0])
 green: Generator = solid_color([0.0, 1.0, 0.0])
 blue: Generator = solid_color([0.0, 0.0, 1.0])
@@ -54,12 +56,13 @@ black: Generator = solid_color([0.0, 0.0, 0.0])
 white: Generator = solid_color([1.0, 1.0, 1.0])
 
 
+# Generates white colored noise by time
 def noise_generator(time, *_) -> Color:
     x = noise(time  * 0.1)
     return [x, x, x]
     
 
-
+# Converts two generators into one, splitting them at light `split_at`. 
 def split(split_at: int, generator1: Generator, generator2: Generator) -> Generator:
     def helper(time, light, total_lights):
         if light < split_at:
@@ -69,24 +72,31 @@ def split(split_at: int, generator1: Generator, generator2: Generator) -> Genera
     return helper
 
 
+# Shifts generators lights towards the end by `by` lights, while
+# putting overflowing lights to the beginning.
 def rotate(by: int, generator: Generator) -> Generator:
     def helper(time, light, total_lights):
         return generator(time, (light - by) % total_lights, total_lights)
     return helper
 
 
+# Flips a given generator, so that the first light becomes the last and so on.
 def mirror(generator: Generator) -> Generator:
     def helper(time, light, total_lights):
         return generator(time, total_lights - 1 - light, total_lights)
     return helper
 
 
+# Shifts all lights of generator in time by shift
 def time_shift(shift: float, generator: Generator) -> Generator:
     def helper(time, light, total_lights):
         return generator(time + shift, light, total_lights)
     return helper
 
 
+# Shifts generators time of lamps, so that the first lamp is shifted by
+# start_time_shift, and last by end_time_shift, while the lights in between
+# make a transition from first lamp to last.
 def time_shift_gradient(start_time_shift: float, end_time_shift: float, generator: Generator) -> Generator:
     def helper(time, light, total_lights):
         light_pos = light / total_lights
@@ -95,12 +105,14 @@ def time_shift_gradient(start_time_shift: float, end_time_shift: float, generato
     return helper
 
 
+# Scales generators timescale
 def time_scale(factor: float, generator: Generator) -> Generator:
     def helper(time, light, total_lights):
         return generator(time * factor, light, total_lights)
     return helper
 
 
+# Turns all generators lights on and off smoothly by time
 def shimmer(speed: float, generator: Generator) -> Generator:
     def helper(time, light, total_lights):
         phase = 2 * math.pi * time * speed
@@ -111,13 +123,15 @@ def shimmer(speed: float, generator: Generator) -> Generator:
     return helper
 
 
-def amplitude_modulation(*generators) -> Generator:
+# Multiplies given generators together by their color channels
+def product(*generators) -> Generator:
     def helper(time, light, total_lights):
         colors = [g(time, light, total_lights) for g in generators]
         return [math.prod(a) for a in zip(*colors)]
     return helper
 
 
+# Sums given generators together by their color channels 
 def add(*generators) -> Generator:
     def helper(time, light, total_lights):
         colors = [g(time, light, total_lights) for g in generators]
@@ -125,6 +139,7 @@ def add(*generators) -> Generator:
     return helper
 
 
+# Transitions from generator1 to generator2 by x, from 0.0 to 1.0
 def mix(x: float, generator1: Generator, generator2: Generator) -> Generator:
     def helper(time, light, total_lights):
         color1 = generator1(time, light, total_lights)
@@ -133,6 +148,7 @@ def mix(x: float, generator1: Generator, generator2: Generator) -> Generator:
     return helper
 
 
+# Makes lights symmetrical by their centermost light
 def mirror_split(generator: Generator) -> Generator:
     def helper(time, light, total_lights):
         return split(int(total_lights / 2), generator, mirror(generator))(time, light, total_lights)
@@ -146,13 +162,14 @@ def abberration(strength: float, generator: Generator):
     return helper
 
 
+# Makes the lights go trough rainbow colors by time
 def rainbow(time, *_) -> Color:
     return rainbow_gradient(time)
 
 
 ytp: Generator = \
     mirror_split(
-        amplitude_modulation(
+        product(
             time_scale(
                 1.0,
                 time_shift_gradient(
@@ -192,11 +209,11 @@ color_noise: Generator = \
             0.0,
             80.0,
             add(
-                amplitude_modulation(
+                product(
                     red,
                     noise_generator
                 ),
-                amplitude_modulation(
+                product(
                     green,
                     time_shift(
                         100,
@@ -206,7 +223,7 @@ color_noise: Generator = \
                         )
                     )
                 ),
-                amplitude_modulation(
+                product(
                     blue,
                     time_shift(
                         200,

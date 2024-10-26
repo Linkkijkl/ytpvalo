@@ -27,11 +27,13 @@ class Gui:
         print()
 
 
+    # Sets frame time to be shown in UI with smoothing
     def set_frame_time(self, frame_time: float):
         NEW_VAL_WEIGHT = 1/10
         self._frame_time = self._frame_time * (1-NEW_VAL_WEIGHT) + frame_time * NEW_VAL_WEIGHT
 
 
+    # Registers a new command into UI
     def register_command(self, command: str, callback: Callable[..., str | None]):
         self._commands[command] = callback
 
@@ -61,15 +63,18 @@ class Gui:
         self._truncate_log()
 
 
+    # Logs to UI
     def log(self, message: str):
         self._console.append(message)
 
 
+    # Logs error to UI
     def log_error(self, err_str: str):
         self._console.append(
             f"{self._term.color_rgb(255, 100, 100)}{err_str}{self._term.normal}")
 
 
+    # Renders terminal UI
     def render(self):
         lines = 1
         display = ""
@@ -101,6 +106,7 @@ class Gui:
         sys.stdout.flush()
 
     
+    # Polls and handles input
     def poll(self, poll_for: float):
         with self._term.raw(), self._term.keypad():
                 inp = self._term.inkey(poll_for)
